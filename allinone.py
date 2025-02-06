@@ -4,9 +4,10 @@ from pymongo import MongoClient
 import random
 import threading
 
-# MongoDB Connection
-MONGO_URI = "mongodb+srv://tictactoe-admin:tictactoe1234@tictactoe-ruben-xavier.k9psb.mongodb.net/tictactoe?retryWrites=true&w=majority&appName=TicTacToe-Ruben-Xavier"
-client = MongoClient(MONGO_URI)
+# MongoDB URI
+uri = "mongodb+srv://tictactoe-admin:tictactoe1234@cluster0.f4d1c.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+
+client = MongoClient(uri)
 db = client.tictactoe
 games_collection = db.games
 
@@ -15,6 +16,8 @@ root = tk.Tk()
 root.title("Tic-Tac-Toe")
 
 game_id = None
+player_symbol = "X"  # Initially the player will be "X"
+player_turn = "X"  # This variable will track whose turn it is
 
 def generate_game_id():
     while True:
@@ -24,6 +27,7 @@ def generate_game_id():
 
 def create_game():
     global game_id
+    global player_symbol
     game_id = generate_game_id()
     new_game = {
         "gameId": game_id,
@@ -38,13 +42,20 @@ def create_game():
 
 def join_game():
     global game_id
+    global player_symbol
     try:
         game_id = int(game_id_entry.get().strip())
     except ValueError:
         messagebox.showerror("Error", "Please enter a valid Game ID.")
         return
     
-    if games_collection.find_one({"gameId": game_id}):
+    game = games_collection.find_one({"gameId": game_id})
+    if game:
+        # Player chooses symbol based on availability
+        if game["currentPlayer"] == "X":
+            player_symbol = "O"
+        else:
+            player_symbol = "X"
         show_game_screen()
     else:
         messagebox.showerror("Error", "Game not found.")
@@ -60,6 +71,7 @@ def show_game_screen():
     game_frame.pack()
 
 def make_move(index):
+    global player_symbol
     game = games_collection.find_one({"gameId": game_id})
     if not game:
         messagebox.showerror("Error", "Game not found.")
@@ -69,7 +81,11 @@ def make_move(index):
         messagebox.showerror("Error", "Invalid move.")
         return
     
-    game["board"][index] = game["currentPlayer"]
+    if game["currentPlayer"] != player_symbol:
+        messagebox.showerror("Error", "It's not your turn.")
+        return
+
+    game["board"][index] = player_symbol
     winner = check_winner(game["board"])
     if winner:
         game["winner"] = winner
