@@ -14,9 +14,7 @@ games_collection = db.games
 root = tk.Tk()
 root.title("Tic-Tac-Toe")
 
-# Global variables
 game_id = None
-polling = False
 
 def generate_game_id():
     while True:
@@ -45,11 +43,15 @@ def join_game():
     except ValueError:
         messagebox.showerror("Error", "Please enter a valid Game ID.")
         return
-
+    
     if games_collection.find_one({"gameId": game_id}):
         show_game_screen()
     else:
         messagebox.showerror("Error", "Game not found.")
+
+def show_start_screen():
+    game_frame.pack_forget()
+    start_frame.pack()
 
 def show_game_screen():
     start_frame.pack_forget()
@@ -62,11 +64,11 @@ def make_move(index):
     if not game:
         messagebox.showerror("Error", "Game not found.")
         return
-
+    
     if game["winner"] or game["isDraw"] or game["board"][index] is not None:
         messagebox.showerror("Error", "Invalid move.")
         return
-
+    
     game["board"][index] = game["currentPlayer"]
     winner = check_winner(game["board"])
     if winner:
@@ -106,7 +108,7 @@ def watch_game():
 def start_watch_thread():
     threading.Thread(target=watch_game, daemon=True).start()
 
-# GUI Components
+# Start Screen
 start_frame = tk.Frame(root)
 tk.Label(start_frame, text="Enter Game ID:", font=("Arial", 14)).pack(pady=10)
 game_id_entry = tk.Entry(start_frame, font=("Arial", 14))
@@ -115,6 +117,7 @@ tk.Button(start_frame, text="Join Game", font=("Arial", 14), command=join_game).
 tk.Button(start_frame, text="Create New Game", font=("Arial", 14), command=create_game).pack(pady=10)
 start_frame.pack()
 
+# Game Screen
 game_frame = tk.Frame(root)
 game_id_label = tk.Label(game_frame, text="Game ID: None", font=("Arial", 14))
 game_id_label.grid(row=0, column=0, columnspan=3)
@@ -123,7 +126,11 @@ status_label.grid(row=1, column=0, columnspan=3)
 buttons = [tk.Button(game_frame, text=" ", font=("Arial", 24), width=5, height=2, command=lambda i=i: make_move(i)) for i in range(9)]
 for i, button in enumerate(buttons):
     button.grid(row=i//3+2, column=i%3)
-game_frame.pack()
+tk.Button(game_frame, text="Back", font=("Arial", 14), command=show_start_screen).grid(row=5, column=0, columnspan=3)
+
+tk.Button(start_frame, text="Back", font=("Arial", 14), command=show_start_screen).pack(pady=10)
+
+game_frame.pack_forget()
 
 if __name__ == "__main__":
     start_watch_thread()
