@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from pymongo import MongoClient
+from pymongo.errors import OperationFailure
 import random
 import threading
 
@@ -115,11 +116,20 @@ def check_winner(board):
     return None
 
 def watch_game():
-    pipeline = [{"$match": {"operationType": "update"}}]
-    with games_collection.watch(pipeline) as stream:
+    pipeline = [
+        {"$match": {"operationType": "update"}},
+        {"$project": {"fullDocument.gameId": 1, "fullDocument.currentPlayer": 1}}
+    ]
+    with games_collection.watch(pipeline, full_document="updateLookup") as stream:
         for change in stream:
-            if change["fullDocument"]["gameId"] == game_id:
-                update_board()
+            print("Change received:", change)  # Debug print
+            if "fullDocument" in change:
+                print("Full document:", change["fullDocument"])  # Debug print
+                if change["fullDocument"]["gameId"] == game_id:
+                    print("Matching game_id found")  # Debug print
+                    if change["fullDocument"]["currentPlayer"] == player_symbol:
+                        print("Updating board...")  # Debug print
+                        update_board()
 
 def start_watch_thread():
     threading.Thread(target=watch_game, daemon=True).start()
