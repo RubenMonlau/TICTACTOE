@@ -21,12 +21,14 @@ player_symbol = "X"  # Initially the player will be "X"
 player_turn = "X"  # This variable will track whose turn it is
 
 def generate_game_id():
+    """Generates a unique game ID."""
     while True:
         game_id = random.randint(100000, 999999)
         if not games_collection.find_one({"gameId": game_id}):
             return game_id
 
 def create_game():
+    """Creates a new game in the database."""
     global game_id
     global player_symbol
     game_id = generate_game_id()
@@ -42,6 +44,7 @@ def create_game():
     show_game_screen()
 
 def join_game():
+    """Joins an existing game based on user input."""
     global game_id
     global player_symbol
     try:
@@ -52,9 +55,8 @@ def join_game():
     
     game = games_collection.find_one({"gameId": game_id})
     if game:
-        # Player chooses symbol based on availability
         if game["currentPlayer"] == "X":
-            player_symbol = "O"
+            player_symbol = "R"  # Changed from "O" to "R"
         else:
             player_symbol = "X"
         show_game_screen()
@@ -62,16 +64,19 @@ def join_game():
         messagebox.showerror("Error", "Game not found.")
 
 def show_start_screen():
+    """Switches to the start screen."""
     game_frame.pack_forget()
     start_frame.pack()
 
 def show_game_screen():
+    """Displays the game screen and updates the board."""
     start_frame.pack_forget()
     game_id_label.config(text=f"Game ID: {game_id}")
     update_board()
     game_frame.pack()
 
 def make_move(index):
+    """Handles a player's move and updates the game state."""
     global player_symbol
     game = games_collection.find_one({"gameId": game_id})
     if not game:
@@ -92,11 +97,12 @@ def make_move(index):
         game["winner"] = winner
     elif None not in game["board"]:
         game["isDraw"] = True
-    game["currentPlayer"] = "O" if game["currentPlayer"] == "X" else "X"
+    game["currentPlayer"] = "R" if game["currentPlayer"] == "X" else "X"  # Changed "O" to "R"
     games_collection.update_one({"gameId": game_id}, {"$set": game})
     update_board()
 
 def update_board():
+    """Updates the visual board with the latest game state."""
     game = games_collection.find_one({"gameId": game_id})
     if game:
         for i, cell in enumerate(game["board"]):
@@ -109,6 +115,7 @@ def update_board():
             status_label.config(text=f"Current Player: {game['currentPlayer']}")
 
 def check_winner(board):
+    """Checks if there's a winner in the current game state."""
     winning_combinations = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]]
     for combo in winning_combinations:
         if board[combo[0]] == board[combo[1]] == board[combo[2]] and board[combo[0]] is not None:
@@ -116,22 +123,20 @@ def check_winner(board):
     return None
 
 def watch_game():
+    """Watches for game updates and automatically updates the board."""
     pipeline = [
         {"$match": {"operationType": "update"}},
-        {"$project": {"fullDocument.gameId": 1, "fullDocument.currentPlayer": 1}}
+        {"$project": {"fullDocument.gameId": 1, "fullDocument.currentPlayer": 1, "fullDocument.board": 1, "fullDocument.winner": 1}}
     ]
     with games_collection.watch(pipeline, full_document="updateLookup") as stream:
         for change in stream:
-            print("Change received:", change)  # Debug print
             if "fullDocument" in change:
-                print("Full document:", change["fullDocument"])  # Debug print
-                if change["fullDocument"]["gameId"] == game_id:
-                    print("Matching game_id found")  # Debug print
-                    if change["fullDocument"]["currentPlayer"] == player_symbol:
-                        print("Updating board...")  # Debug print
-                        update_board()
+                game_data = change["fullDocument"]
+                if game_data["gameId"] == game_id:
+                    update_board()
 
 def start_watch_thread():
+    """Starts the background thread to watch the game for updates."""
     threading.Thread(target=watch_game, daemon=True).start()
 
 # Start Screen
